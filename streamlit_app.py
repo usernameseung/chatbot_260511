@@ -1,195 +1,151 @@
 import streamlit as st
 from openai import OpenAI
-import base64
 
-# --- Page Configuration ---
+# 1. 페이지 설정 (귀여운 아이콘과 타이틀)
 st.set_page_config(
-    page_title="귀여운 챗봇 친구", 
-    page_icon="💖", 
-    layout="wide",
+    page_title="냠냠서울 | 나만의 맛집 메이트",
+    page_icon="🍭",
+    layout="centered"
 )
 
-# --- Custom Cute UI/UX with CSS ---
-def get_base64_of_bin_file(bin_file):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
-# (Optional: Add a base64 background image, for simplicity, I'll use a color and shapes)
-# background_image_base64 = get_base64_of_bin_file("cute_background.png") # Put a cute png in the same folder
-
+# 2. 귀여운 UI를 위한 커스텀 CSS
 st.markdown("""
-<style>
-    /* Main Background and Container */
+    <style>
+    /* 전체 배경색 - 연한 핑크/크림 */
     .stApp {
-        background-color: #ffeef2; /* Light pastel pink/cream */
-        background-image: 
-            radial-gradient(#ffcad4 10%, transparent 10%),
-            radial-gradient(#b3e5fc 5%, transparent 5%);
-        background-size: 80px 80px, 40px 40px;
-        background-position: 0 0, 40px 40px;
+        background-color: #FFF5F7;
     }
-    .main .block-container {
-        padding: 2rem 5rem;
-        background-color: rgba(255, 255, 255, 0.7); /* Translucent white inner container */
-        border-radius: 30px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+    
+    /* 제목 스타일 */
+    .main-title {
+        font-size: 3rem;
+        font-weight: 800;
+        color: #FF85A2;
+        text-align: center;
+        margin-bottom: 0px;
+        text-shadow: 2px 2px #FFD1DC;
     }
-
-    /* Typography */
-    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap');
-    html, body, [class*="st-"] {
-        font-family: 'Quicksand', sans-serif;
-    }
-    h1 {
-        font-weight: 700 !important;
-        color: #ff6b81 !important; /* Hearty Pink */
-        text-shadow: 2px 2px 0px rgba(255, 107, 129, 0.2);
-    }
-    h2, h3, h4, h5, h6, .stSubheader {
-        font-weight: 600 !important;
-        color: #a29bfe !important; /* Soft Purple */
+    
+    /* 설명 문구 스타일 */
+    .sub-title {
+        text-align: center;
+        color: #FFB3C1;
+        font-size: 1.1rem;
+        margin-bottom: 30px;
     }
 
-    /* Inputs (API Key, Chat Input) */
-    .stTextInput > div > div > input, 
-    .stChatInput > div > div > div > textarea {
-        border-radius: 20px !important;
-        border: 2px solid #ffcad4 !important;
-        background-color: #fffaf0 !important;
-        padding: 10px 15px !important;
-        transition: all 0.3s ease;
-    }
-    .stTextInput > div > div > input:focus,
-    .stChatInput > div > div > div > textarea:focus {
-        border-color: #ff6b81 !important;
-        box-shadow: 0 0 10px rgba(255, 107, 129, 0.3) !important;
-    }
-    .stChatInput > div {
-        bottom: 10px !important;
-        background-color: rgba(255, 255, 255, 0.9) !important;
-        border-radius: 20px !important;
-        padding: 5px !important;
-    }
-
-    /* Chat Messages */
+    /* 채팅 메시지 박스 둥글게 */
     .stChatMessage {
         border-radius: 25px !important;
-        padding: 15px 20px !important;
-        margin-bottom: 15px !important;
-        max-width: 80%;
+        padding: 15px !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        margin-bottom: 10px;
     }
-    .stChatMessage.user {
-        background-color: #d1f2ff !important; /* Soft blue for user */
-        float: right !important;
-        border-bottom-right-radius: 5px !important;
-    }
-    .stChatMessage.assistant {
-        background-color: #fce4ec !important; /* Soft pink for assistant */
-        float: left !important;
-        border-top-left-radius: 5px !important;
-    }
-    .stChatMessage div.avatar {
-        width: 35px !important;
-        height: 35px !important;
-        font-size: 20px !important;
-        line-height: 35px !important;
-        border-radius: 50% !important;
-    }
-    .stChatMessage .avatar p {
-        margin: 0 !important;
-    }
-
-    /* Link and Buttons */
-    a {
-        color: #ff6b81 !important;
-        text-decoration: underline !important;
-    }
-    button.st-af {
-        border-radius: 20px !important;
-        background-color: #ff6b81 !important;
-        color: white !important;
-        font-weight: 600 !important;
-        border: none !important;
-        padding: 8px 20px !important;
-    }
-    button.st-af:hover {
-        background-color: #ff8e9b !important;
-    }
-
-    /* Info Box */
-    .stAlert {
-        border-radius: 20px !important;
-        background-color: #ffe082 !important;
-        color: #795548 !important;
-        border: none !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# --- App Title and Description ---
-# Custom header structure
-st.markdown("""
-<div style='text-align: center; margin-bottom: 30px;'>
-    <div style='font-size: 70px;'>💖</div>
-    <h1>귀여운 챗봇 친구</h1>
-    <p style='color: #888; font-size: 1.1em;'>
-        안녕! 저는 OpenAI의 GPT-3.5 모델을 사용하는 친구예요.<br>
-        나랑 신나게 이야기하고 싶다면, 너의 특별한 API 키를 보여줘!<br>
-        <a href="https://platform.openai.com/account/api-keys" target="_blank">키는 여기서 얻을 수 있어</a> (비밀이야!🤫)<br>
-        혹시 챗봇 만드는 법이 궁금하면, <a href="https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps" target="_blank">우리 튜토리얼을 따라해봐!</a>
-    </p>
-</div>
-""", unsafe_allow_html=True)
-
-
-# --- API Key Input ---
-# Place it inside a container to manage its appearance better
-with st.container():
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        # A more inviting label
-        openai_api_key = st.text_input("✨ 당신의 OpenAI API 키는?", type="password", help="키를 입력하고 엔터를 눌러주세요!")
     
+    /* 사용자 메시지 (연한 블루) */
+    [data-testid="stChatMessageUser"] {
+        background-color: #E3F2FD !important;
+        border: 2px solid #BBDEFB;
+    }
+    
+    /* 봇 메시지 (연한 핑크) */
+    [data-testid="stChatMessageAssistant"] {
+        background-color: #FFEBEE !important;
+        border: 2px solid #FFCDD2;
+    }
+
+    /* 입력창 디자인 */
+    .stChatInputContainer {
+        border-radius: 30px !important;
+        border: 2px solid #FFB3C1 !important;
+        background-color: white !important;
+    }
+
+    /* 버튼 스타일 */
+    button {
+        border-radius: 20px !important;
+        background-color: #FF85A2 !important;
+        color: white !important;
+    }
+    
+    /* 사이드바 스타일 */
+    [data-testid="stSidebar"] {
+        background-color: #FFFAFB;
+        border-right: 2px dashed #FFD1DC;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 3. 사이드바 - 귀여운 필터링
+with st.sidebar:
+    st.markdown("<h2 style='text-align: center; color: #FF85A2;'>🎀 필터링 🎀</h2>", unsafe_allow_html=True)
+    st.image("https://img.icons8.com/bubbles/200/restaurant.png", use_container_width=True)
+    
+    openai_api_key = st.text_input("OpenAI 키를 넣어줘!", type="password", placeholder="sk-...")
+    
+    st.divider()
+    
+    st.markdown("**어디로 갈까? 📍**")
+    area = st.selectbox("서울 지역 선택", ["강남구", "마포구(홍대)", "성동구(성수)", "용산구(한남)", "종로구", "송파구"])
+    
+    st.markdown("**어떤 음식이 당겨? 🍰**")
+    mood = st.select_slider("오늘의 분위기", options=["가성비", "적당함", "분위기 갑", "럭셔리"])
+    
+    st.write("---")
+    st.caption("냠냠서울 v1.0 | 만든이: 귀염둥이 개발자")
+
+# 4. 메인 화면 헤더
+st.markdown("<p class='main-title'>🍭 냠냠서울</p>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>오늘 점심 뭐 먹지? 내가 딱 정해줄게! ✨</p>", unsafe_allow_html=True)
+
+# 5. 로직 시작
 if not openai_api_key:
-    # A friendlier info message
-    st.info("비밀 키를 아직 입력하지 않았네요! 키를 보여줘야 친구가 될 수 있어요.", icon="🔑")
-else:
+    st.info("왼쪽 주머니(사이드바)에 API 키를 쏙 넣어주면 맛집 여행을 시작할 수 있어! 🗝️", icon="🍬")
+    st.stop()
 
-    # Create an OpenAI client.
-    client = OpenAI(api_key=openai_api_key)
+client = OpenAI(api_key=openai_api_key)
 
-    # Create a session state variable to store the chat messages.
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+# 세션 메시지 초기화 (페르소나: 귀여운 미식가 친구)
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {
+            "role": "system",
+            "content": (
+                "너는 서울의 모든 맛집을 섭렵한 귀여운 미식가 친구 '냠냠이'야. "
+                "말투는 매우 친절하고 귀여워야 해. (~했어용, ~해봐요!, ✨, 💖 같은 이모지 다수 사용) "
+                "답변은 다음 형식을 꼭 지켜줘:\n"
+                "1. 식당 이름 (귀여운 이모지와 함께)\n"
+                "2. 왜 추천하는지 (맛이나 분위기)\n"
+                "3. 추천 메뉴와 꿀팁\n"
+                "항상 사용자의 선택된 지역과 분위기를 참고해서 알려줘!"
+            )
+        }
+    ]
 
-    # Display the existing chat messages via `st.chat_message`.
-    # Target elements in the CSS using user and assistant classes
-    for message in st.session_state.messages:
-        # Custom avatars
-        avatar_emoji = "👤" if message["role"] == "user" else "💖"
-        with st.chat_message(message["role"], avatar=avatar_emoji):
+# 채팅 기록 표시
+for message in st.session_state.messages:
+    if message["role"] != "system":
+        avatar = "👤" if message["role"] == "user" else "🍭"
+        with st.chat_message(message["role"], avatar=avatar):
             st.markdown(message["content"])
 
-    # --- Chat Input field ---
-    if prompt := st.chat_input("오늘 기분이 어때? 무슨 이야기든 환영이야!"):
+# 6. 채팅 입력 및 응답
+if prompt := st.chat_input("먹고 싶은 거나 궁금한 거 물어봐! (예: 떡볶이 맛집 알려줘)"):
+    
+    # 필터 정보를 섞어서 질문 생성
+    refined_prompt = f"[지역:{area} / 분위기:{mood}] {prompt}"
+    
+    st.session_state.messages.append({"role": "user", "content": refined_prompt})
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(prompt)
 
-        # Store and display the current prompt.
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(prompt)
-
-        # Generate a response using the OpenAI API.
-        stream = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ],
-            stream=True,
-        )
-
-        # Stream the response and store it.
-        with st.chat_message("assistant", avatar="💖"):
+    with st.chat_message("assistant", avatar="🍭"):
+        with st.spinner("냠냠이가 맛집 지도 뒤지는 중... 🐾"):
+            stream = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=st.session_state.messages,
+                stream=True,
+            )
             response = st.write_stream(stream)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            
+    st.session_state.messages.append({"role": "assistant", "content": response})
